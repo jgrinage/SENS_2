@@ -24,15 +24,16 @@ float accel[3];//actual accelerometer reading
 
 
 char RGB_init_buf[] = {4, RGB_ADDR,  // set up Chip address
-                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ATIME), 0xEB, 3,    // 
-                      // 2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONFIG), 0x00, 3, // 
-                      // 2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONTROL), 0x01, 3, // 
-		      // 2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), TCS34725_ENABLE_PON,3,	//power on
+                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ATIME), 0xEB, 3,   // 
+                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONFIG), 0x00, 3, // 
+                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONTROL), 0x01, 3, // 
+		       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), TCS34725_ENABLE_PON,3,	//power on
                        0 // EOL
                        };
 
+
 char RGB_enable_buf[] = {4, RGB_ADDR,  // set up Chip address
-                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN), 3,    // 
+                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN), 3,   // 
                        0 // EOL
                        };
 
@@ -44,9 +45,15 @@ char RGB_check_buf[] = {4, RGB_ADDR,  // set up Chip address
 
 int main(){
 
-if (gpioInitialise() < 0) return -1;
+if (gpioInitialise() < 0) {
+	printf("Pigpio library initialization failed\n");
+	return -1;
+}
 
-if (bbI2COpen(2,3,100000) != 0) return -1;
+if (bbI2COpen(2,3,100000) != 0){
+	printf("Bit Banging initialization failed\n");
+	return -1;
+}
 
 err = bbI2CZip(2,RGB_init_buf,sizeof(RGB_init_buf),NULL,0);
 
@@ -59,6 +66,7 @@ err = bbI2CZip(2,RGB_enable_buf,sizeof(RGB_enable_buf),NULL,0);
 printf ("RGB enable error = %d\n", err);
 
 err = bbI2CZip(2,RGB_check_buf,sizeof(RGB_check_buf),RGB_check,sizeof(RGB_check) );
+printf("RGB check ID error = %d\n", err);
 
 /***
 RGB_handler = i2cOpen(1,RGB_ADDR,0);
@@ -74,7 +82,7 @@ i2cWriteByteData(RGB_handler,(RGB_COMMAND_BIT | TCS34725_ENABLE), (TCS34725_ENAB
 int RGB_ID_check = i2cReadByteData(RGB_handler,(RGB_COMMAND_BIT | TCS34725_ID));
 
 ***/
-printf("RGB check ID error = %d\n", err);
+
 if(RGB_check[0] == 0x44){
 	printf("RGB Sensor Connected, ID = %d\n", RGB_check[0]);
 }else{
