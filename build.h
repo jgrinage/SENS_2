@@ -41,8 +41,8 @@
 
 #define CLEAR_L				(0x14)
 #define CLEAR_H				(0x15)
-#define RED_H				(0x17)
-#define RED_L				(0x16)
+#define RED_H				  (0x17)
+#define RED_L				  (0x16)
 #define BLUE_H				(0x1B)
 #define BLUE_L				(0x1A)
 #define GREEN_H				(0x19)
