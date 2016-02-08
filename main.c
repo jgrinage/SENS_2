@@ -22,7 +22,7 @@ float accel[3];//actual accelerometer reading
 
 
 char RGB_init_buf[] = {4, RGB_ADDR,  // set up Chip address
-                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ATIME), 0xEB, 3,   // 
+                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ATIME), 0xFF, 3,   // Integration of Sensor. 0 - slowest , 0xFF -fastest
                        2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONFIG), 0x00, 3, // 
                        2, 7, 2, (RGB_COMMAND_BIT | TCS34725_CONTROL), 0x01, 3, // 
 		                   2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), TCS34725_ENABLE_PON,3,	//power on
@@ -68,12 +68,12 @@ bbI2CClose(2);
 
 gpioTerminate();
 
-if (gpioInitialise() < 0) {
+if (gpioInitialise() < 0) { //initialization of GPIO library
 	printf("Pigpio library initialization failed\n");
 	return -1;
 }
 
-if (bbI2COpen(2,3,100000) != 0){
+if (bbI2COpen(2,3,100000) != 0){ //start Bitbanging on with SDA = pin2, SCL = pin3
 	printf("Bit Banging initialization failed\n");
 	return -1;
 }
