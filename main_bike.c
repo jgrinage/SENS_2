@@ -17,6 +17,7 @@ char MMA_check[1+1];
 
 int err; //error code
 
+
 float color[4];//actual color reading
 float accel[3];//actual accelerometer reading
 
@@ -116,7 +117,13 @@ if(RGB_check[0] == 0x44){
 while (gpioInitialise() < 0)
 {
   // Failed init
-  printf ("GPIO init error = %d\n", err);
+	static int errcounter = 0;
+	errcounter++;
+	if (errcounter>50) {
+		printf ("GPIO init error = %d\n", err);
+		return -1;
+	}
+	//printf ("Error counter = %d\n", errcounter);
 }
 // Successfully initialized gpio
 
@@ -124,23 +131,27 @@ while (gpioInitialise() < 0)
 
 err = bbI2CZip(2,MMA_init_buf,sizeof(MMA_init_buf),NULL,0);
 while (err != 0){
-err = bbI2CZip(2,MMA_init_buf,sizeof(MMA_init_buf),NULL,0);
-printf ("MMA init error = %d\n", err);
+	err = bbI2CZip(2,MMA_init_buf,sizeof(MMA_init_buf),NULL,0);
+	errcounter++
+	if (errcounter>100) {
+		printf ("MMA init error = %d\n", err);
+		return -1;
+	}
 // no return cause it keeps trying until it works
 }
-printf ("MMA init pass\n");
+//printf ("MMA init pass\n");
 
 
 
 err = bbI2CZip(2,MMA_check_buf,sizeof(MMA_check_buf),MMA_check,sizeof(MMA_check) );
 while (err != 1){
 err = bbI2CZip(2,MMA_check_buf,sizeof(MMA_check_buf),MMA_check,sizeof(MMA_check) );
-printf("MMA check ID error = %d\n", err);
+//printf("MMA check ID error = %d\n", err);
 }
 
 
 if(MMA_check[0] == MMA8451_WHO_AM_I_VALUE){
-	printf("MMA Sensor Connected, ID = %d\n", MMA_check[0]);
+	//printf("MMA Sensor Connected, ID = %d\n", MMA_check[0]);
 }else{
 	printf("ERROR! MMA Sensor not found\n");
 	while(bbI2CClose(2)!=0);
@@ -148,7 +159,7 @@ if(MMA_check[0] == MMA8451_WHO_AM_I_VALUE){
 	return -1;
 }
 
-
+printf("X , Y, Z \n");
 
 for(;;){
 /*
