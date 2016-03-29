@@ -17,10 +17,11 @@ char MMA_check[1+1];
 
 int err; //error code
 
-
 float color[4];//actual color reading
-float accel[3];//actual accelerometer reading
-
+uint16_t accel[3];//actual accelerometer reading before normalization
+float accel_g[3]; //accelerometer reading after normalization
+//function prototype
+float MMA_g_out(uint16_t accel_reading);
 
 char RGB_init_buf[] = {4, RGB_ADDR,  // set up Chip address
                        2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ATIME), 0xFF, 3,   // Integration of Sensor. 0 - slowest , 0xFF -fastest
@@ -47,8 +48,10 @@ char RGB_read_buf[] = {4, RGB_ADDR,  // set up Chip address
                        };
                        
 char MMA_init_buf[] = {4, MMA8451_ADDR,  // set up Chip address
-                       2, 7, 2, MMA8451_CTRL_REG1, 0x00, 3,    // put MMA in standby
-                       2, 7, 2, MMA8451_XYZ_DATA_CFG, 0x01, 3, // Configure XYZ
+                       2, 7, 2, MMA8451_CTRL_REG1, 0x18, 3,    // put MMA in standby
+                       //2, 7, 2, MMA8451_FF_MT_CFG, 0xF8, 3,    // configure interrupt to detect freefall in XYZ direction, event flag latch enabled - read FF_MT_SRC to clear flag
+                       //2, 7, 2, 
+                       2, 7, 2, MMA8451_XYZ_DATA_CFG, 0x02, 3, // Configure XYZ +/- 8g (full-scale  = 8g)
 		                   2, 7, 2, MMA8451_CTRL_REG1, 0x21,3,	//initialize MMA
                        0 // EOL
                        };
@@ -60,7 +63,7 @@ char MMA_read_buf[] = {4, MMA8451_ADDR,  // set up Chip address
 
 char MMA_check_buf[] = {4, MMA8451_ADDR,  // set up Chip address
                        2, 7, 1, MMA8451_WHO_AM_I ,2,6,1, 3, 
-                       0 // EOL RRF
+                       0 // EOL
                        };
 
 int main(){
@@ -70,6 +73,7 @@ bbI2CClose(2);
 gpioTerminate();
 
 if (gpioInitialise() < 0) { //initialization of GPIO library
+
 	printf("Pigpio library initialization failed\n");
 	return -1;
 }
@@ -78,12 +82,13 @@ if (bbI2COpen(2,3,100000) != 0){ //start Bitbanging on with SDA = pin2, SCL = pi
 	printf("Bit Banging initialization failed\n");
 	return -1;
 }
+
 /*** Initialize RGB ***/
 /*
 err = bbI2CZip(2,RGB_init_buf,sizeof(RGB_init_buf),NULL,0);
 while (err != 0){
-err = bbI2CZip(2,RGB_init_buf,sizeof(RGB_init_buf),NULL,0);
-printf ("RGB init error = %d\n", err);
+	err = bbI2CZip(2,RGB_init_buf,sizeof(RGB_init_buf),NULL,0);
+	printf ("RGB init error = %d\n", err);
 }
 printf ("RGB init pass\n");
 
@@ -91,16 +96,16 @@ for (int i=0; i<1000;i++){};
 
 err = bbI2CZip(2,RGB_enable_buf,sizeof(RGB_enable_buf),NULL,0);
 while (err != 0){
-err = bbI2CZip(2,RGB_enable_buf,sizeof(RGB_enable_buf),NULL,0);
-printf ("RGB enable error = %d\n", err);
+	err = bbI2CZip(2,RGB_enable_buf,sizeof(RGB_enable_buf),NULL,0);
+	printf ("RGB enable error = %d\n", err);
 }
 printf ("RGB enable pass\n");
 
 
 err = bbI2CZip(2,RGB_check_buf,sizeof(RGB_check_buf),RGB_check,sizeof(RGB_check) );
 while (err != 1){
-err = bbI2CZip(2,RGB_check_buf,sizeof(RGB_check_buf),RGB_check,sizeof(RGB_check) );
-printf("RGB check ID error = %d\n", err);
+	err = bbI2CZip(2,RGB_check_buf,sizeof(RGB_check_buf),RGB_check,sizeof(RGB_check) );
+	printf("RGB check ID error = %d\n", err);
 }
 
 
@@ -114,44 +119,24 @@ if(RGB_check[0] == 0x44){
 }
 */
 
-while (gpioInitialise() < 0)
-{
-  // Failed init
-	static int errcounter = 0;
-	errcounter++;
-	if (errcounter>50) {
-		printf ("GPIO init error = %d\n", err);
-		return -1;
-	}
-	//printf ("Error counter = %d\n", errcounter);
-}
-// Successfully initialized gpio
-
 /*** Initialize MMA ***/
 
 err = bbI2CZip(2,MMA_init_buf,sizeof(MMA_init_buf),NULL,0);
 while (err != 0){
 	err = bbI2CZip(2,MMA_init_buf,sizeof(MMA_init_buf),NULL,0);
-	errcounter++
-	if (errcounter>100) {
-		printf ("MMA init error = %d\n", err);
-		return -1;
-	}
-// no return cause it keeps trying until it works
+	printf ("MMA init error = %d\n", err);
 }
-//printf ("MMA init pass\n");
-
-
+printf ("MMA init pass\n");
 
 err = bbI2CZip(2,MMA_check_buf,sizeof(MMA_check_buf),MMA_check,sizeof(MMA_check) );
 while (err != 1){
-err = bbI2CZip(2,MMA_check_buf,sizeof(MMA_check_buf),MMA_check,sizeof(MMA_check) );
-//printf("MMA check ID error = %d\n", err);
+	err = bbI2CZip(2,MMA_check_buf,sizeof(MMA_check_buf),MMA_check,sizeof(MMA_check) );
+	printf("MMA check ID error = %d\n", err);
 }
 
 
 if(MMA_check[0] == MMA8451_WHO_AM_I_VALUE){
-	//printf("MMA Sensor Connected, ID = %d\n", MMA_check[0]);
+	printf("MMA Sensor Connected, ID = %d\n", MMA_check[0]);
 }else{
 	printf("ERROR! MMA Sensor not found\n");
 	while(bbI2CClose(2)!=0);
@@ -159,58 +144,106 @@ if(MMA_check[0] == MMA8451_WHO_AM_I_VALUE){
 	return -1;
 }
 
-printf("X , Y, Z \n");
+
 
 for(;;){
-/*
+	/*
 	//Clear, Red, BLue, Green
 	err = bbI2CZip(2, RGB_read_buf,sizeof(RGB_read_buf),RGB_result,sizeof(RGB_result));
 
 	//Color_RGB
-	color[0]= ((RGB_result[1]<<8) + RGB_result[0]);
+	color[0]= ((RGB_result[1]<<8) + RGB_result[0]); //last two bits are empty
 	color[1]= ((RGB_result[3]<<8) + RGB_result[2]);
 	color[2]= ((RGB_result[5]<<8) + RGB_result[4]);
 	color[3]= ((RGB_result[7]<<8) + RGB_result[6]);
 
   if (err == 8){
-	printf("%.2f ," ,color[0]); // CLEAR 
-	printf("%.2f ,"   ,color[1]); // RED
-	printf("%.2f ,"  ,color[2]); // GREEN
-	printf("%.2f ," ,color[3]); // BLUE
+	printf("CLEAR = %.2f  " ,color[0]);
+	printf("RED = %.2f  "   ,color[1]);
+	printf("BLUE = %.2f  "  ,color[2]);
+	printf("GREEN = %.2f \n\n" ,color[3]);
  }else{
- printf("RGB read error. error = %d \n", err);
+ 	printf("RGB read error. error = %d \n", err);
  }
-*/
 
+*/
 	//X_MSB,X_LSB,Y_MSB,Y_LSB,Z_MSB,Z_LSB
 	err = bbI2CZip(2, MMA_read_buf,sizeof(MMA_read_buf),MMA_result,sizeof(MMA_result));
 	
   //Accel XYZ
-  
-	accel[0]= ((MMA_result[0]<<8) + MMA_result[1]);
-	accel[1]= ((MMA_result[2]<<8) + MMA_result[3]);
-	accel[2]= ((MMA_result[4]<<8) + MMA_result[5]);
-
- 
+	accel[0]= ((MMA_result[0]<<8) + MMA_result[1])&0xFFFC;
+	accel[1]= ((MMA_result[2]<<8) + MMA_result[3])&0xFFFC;
+	accel[2]= ((MMA_result[4]<<8) + MMA_result[5])&0xFFFC;
+ 	accel_g[0] = MMA_g_out(accel[0]);
+ 	accel_g[1] = MMA_g_out(accel[1]);
+ 	accel_g[2] = MMA_g_out(accel[2]);
   if (err == 6){
-	printf("%.2f ,"   ,accel[0]); // X
-	printf("%.2f ,"   ,accel[1]); // Y
-	printf("%.2f , \n" ,accel[2]); // Z
+	printf("X = %.4f  "   ,accel_g[0]);
+	printf("Y = %.4f  "   ,accel_g[1]);
+	printf("Z = %.4f  \n" ,accel_g[2]);
   }
   else{
   printf("MMA read error. error = %d \n", err);
   }
-  static bool Toggle = true;
-  if (Toggle){
-    gpioWrite_Bits_0_31_Clear(4);
-  }
-  else{
-    gpioWrite_Bits_0_31_Set(4);
-  }
-  Toggle = !Toggle;
 	
 }
   bbI2CClose(2);
 
   gpioTerminate();
+}
+
+
+float MMA_g_out(uint16_t accel_reading){
+	int accel_g_hi = 0;
+	int accel_g_low = 0;
+   bool negative = 0;
+	/*
+	** Determine sign and output
+	*/
+	if ((accel_reading & 0x8000)  == 0x8000){
+		accel_reading &= 0xFFFC;
+    negative = 1;
+		accel_reading = ~accel_reading + 1;
+	}
+	/*
+	** Determine integer value and output
+	*/
+	accel_g_hi = ((accel_reading>>8) & 0x70) >>4;
+	/*
+	** Determine mantissa value
+	*/
+	if ((accel_reading & 0x0800) == 0x0800) {
+    accel_g_low += 5000;
+  }
+	if ((accel_reading & 0x0400) == 0x0400) {
+
+      accel_g_low += 2500;
+  }
+	if ((accel_reading & 0x0200) == 0x0200) {
+      accel_g_low += 1250;
+  }
+	if ((accel_reading & 0x0100) == 0x0100) {
+      accel_g_low += 625;
+  }
+	if ((accel_reading & 0x0080) == 0x0080) {
+      accel_g_low += 313;
+  }
+	if ((accel_reading & 0x0040) == 0x0040) {
+      accel_g_low += 156;
+  } 
+	if ((accel_reading & 0x0020) == 0x0020) {
+      accel_g_low += 78;
+  }
+	if ((accel_reading & 0x0010) == 0x0010) {
+      accel_g_low += 39;
+  }
+	if ((accel_reading & 0x0008) == 0x0008) {
+      accel_g_low += 20;
+  }
+	if ((accel_reading & 0x0004) == 0x0004) {
+      accel_g_low += 10;
+  }
+	float accel_g_float = (float)accel_g_hi + ((float)accel_g_low)/10000;
+ if (negative) accel_g_float = -accel_g_float;
+	return accel_g_float;
 }
