@@ -33,8 +33,8 @@ char RGB_init_buf[] = {4, RGB_ADDR,  // set up Chip address
 
 
 char RGB_enable_buf[] = {4, RGB_ADDR,  // set up Chip address
-                       2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN), 3,   // 
-                       0 // EOL
+                        2, 7, 2, (RGB_COMMAND_BIT | TCS34725_ENABLE), (TCS34725_ENABLE_PON | TCS34725_ENABLE_AEN), 3,   //
+                        0 // EOL
                        };
 
 char RGB_check_buf[] = {4, RGB_ADDR,  // set up Chip address
