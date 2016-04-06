@@ -5,4 +5,3 @@ files = {'file': open('{}'.format(filename))}
 r = requests.post(url, files=files)
 
 
-
